@@ -1,6 +1,6 @@
 --[[
     This file is part of darktable,
-    copyright (c) 2025 <your-name>
+    copyright (c) 2025 Khairil Yusof.
 
     darktable is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ dt.preferences.register(
   "dt_vlm_descriptions",
   "vlm_max_tokens",
   "integer",
-  _("Max Tokens"),
+  _("VLM Max Tokens"),
   _("Maximum number of tokens in the VLM response"),
   4096,
   50,
@@ -80,9 +80,9 @@ dt.preferences.register(
   "dt_vlm_descriptions",
   "vlm_temperature",
   "float",
-  _("Temperature"),
+  _("VLM Temperature"),
   _("Creativity level for VLM generation (0.0 - 1.0)"),
-  0.3,
+  0.6,
   0.0,
   1.0,
   0.1
@@ -92,7 +92,7 @@ dt.preferences.register(
   "dt_vlm_descriptions",
   "vlm_max_dim",
   "integer",
-  _("Max Image Dimension"),
+  _("VLM Max Image Dimension"),
   _("Maximum dimension (longest side) for image resize before sending to VLM (pixels)"),
   1024,
   256,
@@ -103,7 +103,7 @@ dt.preferences.register(
   "dt_vlm_descriptions",
   "panel_position",
   "enum",
-  _("Panel Position"),
+  _("VLM Descriptions Panel Position"),
   _("Panel location in the lighttable view"),
   "DT_UI_CONTAINER_PANEL_RIGHT_CENTER",
   "DT_UI_CONTAINER_PANEL_RIGHT_CENTER",
@@ -478,8 +478,8 @@ local script_data = {}
 script_data.metadata = {
   name = _("VLM Descriptions"),
   purpose = _("Uses local AI VLM to suggest and edit Title/Description metadata for photos"),
-  author = "<your-name>",
-  help = "https://github.com/<your-username>/dt_vlm_descriptions"
+  author = "Khairil Yusof",
+  help = "https://github.com/kaerumy/dt_vlm_descriptions"
 }
 
 script_data.destroy = destroy
