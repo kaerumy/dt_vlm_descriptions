@@ -71,22 +71,27 @@ local function _create_dialog(options)
   -- Title input
   _title_entry = dt.new_widget("entry") {
     tooltip = _("Enter or edit the title"),
+    placeholder = _("enter title here"),
   }
   _title_entry.text = options.title or ""
 
   local title_box = dt.new_widget("box") {
     orientation = "horizontal",
+    fill = true,
     dt.new_widget("label") { label = _("Title:") },
     _title_entry,
   }
 
-  _desc_buffer = dt.new_widget("entry") {
+  _desc_buffer = dt.new_widget("text_view") {
     tooltip = _("Enter or edit the description"),
+    editable = true,
   }
   _desc_buffer.text = options.description or ""
 
   local desc_box = dt.new_widget("box") {
     orientation = "horizontal",
+    expand = true,
+    fill = true,
     dt.new_widget("label") { label = _("Description:") },
     _desc_buffer,
   }

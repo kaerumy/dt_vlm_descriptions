@@ -99,6 +99,19 @@ dt.preferences.register(
   4096
 )
 
+dt.preferences.register(
+  "dt_vlm_descriptions",
+  "panel_position",
+  "enum",
+  _("Panel Position"),
+  _("Panel location in the lighttable view"),
+  "DT_UI_CONTAINER_PANEL_RIGHT_CENTER",
+  "DT_UI_CONTAINER_PANEL_RIGHT_CENTER",
+  "DT_UI_CONTAINER_PANEL_RIGHT_BOTTOM",
+  "DT_UI_CONTAINER_PANEL_LEFT_CENTER",
+  "DT_UI_CONTAINER_PANEL_LEFT_BOTTOM"
+)
+
 -- ---------------------------------------------------------------------------
 -- VLM API call (delegates to lib/dt_vlm)
 -- ---------------------------------------------------------------------------
@@ -154,15 +167,15 @@ local function show_edit_dialog(suggested_title, suggested_description, image)
 end
 
 local function populate_panel_fields(title, description)
-  if not _title_entry_ref and not _desc_entry_ref then
+  if not _title_entry_ref and not _desc_text_ref then
     dt.print_log("populate_panel_fields: panel not installed yet, skipping")
     return
   end
   if _title_entry_ref then
     _title_entry_ref.text = title or ""
   end
-  if _desc_entry_ref then
-    _desc_entry_ref.text = description or ""
+  if _desc_text_ref then
+    _desc_text_ref.text = description or ""
   end
 end
 
@@ -172,8 +185,8 @@ local function get_panel_fields()
   if _title_entry_ref then
     title = _title_entry_ref.text or ""
   end
-  if _desc_entry_ref then
-    description = _desc_entry_ref.text or ""
+  if _desc_text_ref then
+    description = _desc_text_ref.text or ""
   end
   return title, description
 end
@@ -253,8 +266,8 @@ local function action_clear(event, images)
   if _title_entry_ref then
     _title_entry_ref.text = ""
   end
-  if _desc_entry_ref then
-    _desc_entry_ref.text = ""
+  if _desc_text_ref then
+    _desc_text_ref.text = ""
   end
 
   dt.print(_("Title and description cleared"))
@@ -271,7 +284,7 @@ end
 local module_installed = false
 local _module_lib = nil
 local _title_entry_ref = nil
-local _desc_entry_ref = nil
+local _desc_text_ref = nil
 
 local function install_module()
   if module_installed then return end
@@ -299,8 +312,8 @@ local function install_module()
         if _title_entry_ref then
           _title_entry_ref.text = result.title or ""
         end
-        if _desc_entry_ref then
-          _desc_entry_ref.text = result.description or ""
+        if _desc_text_ref then
+          _desc_text_ref.text = result.description or ""
         end
       else
         dt.print_error(_("VLM suggestion failed. Check endpoint and model settings."))
@@ -317,8 +330,8 @@ local function install_module()
       if _title_entry_ref then
         title = _title_entry_ref.text or ""
       end
-      if _desc_entry_ref then
-        description = _desc_entry_ref.text or ""
+      if _desc_text_ref then
+        description = _desc_text_ref.text or ""
       end
       if not title and not description then
         dt.print_error(_("No title or description set. Use Suggest first."))
@@ -342,16 +355,16 @@ local function install_module()
         dt.print_error(_("No image selected"))
         return
       end
-      for _, image in ipairs(dt.gui.action_images) do
-        image.title = ""
-        image.description = ""
-        dt.print_log(_("Cleared title and description from: ") .. image.filename)
+      for __, img in ipairs(dt.gui.action_images) do
+        img.title = ""
+        img.description = ""
+        dt.print_log(_("Cleared title and description from: ") .. img.filename)
       end
       if _title_entry_ref then
         _title_entry_ref.text = ""
       end
-      if _desc_entry_ref then
-        _desc_entry_ref.text = ""
+      if _desc_text_ref then
+        _desc_text_ref.text = ""
       end
       dt.print(_("Title and description cleared"))
       if dvd.is_visible() then
@@ -362,22 +375,28 @@ local function install_module()
 
   local title_entry = dt.new_widget("entry") {
     tooltip = _("Title for the image"),
+    placeholder = _("enter title here"),
   }
 
   local title_box = dt.new_widget("box") {
     orientation = "horizontal",
+    fill = true,
     dt.new_widget("label") { label = _("Title:") },
     title_entry,
   }
 
-  local desc_entry = dt.new_widget("entry") {
+  local desc_text = dt.new_widget("text_view") {
     tooltip = _("Description for the image"),
+    editable = true,
   }
+  desc_text.text = ""
 
   local desc_box = dt.new_widget("box") {
     orientation = "horizontal",
+    expand = true,
+    fill = true,
     dt.new_widget("label") { label = _("Description:") },
-    desc_entry,
+    desc_text,
   }
 
   local info_label = dt.new_widget("label") {
@@ -407,17 +426,19 @@ local function install_module()
     status_label,
   }
 
+  local panel_pos = dt.preferences.read("dt_vlm_descriptions", "panel_position", "enum")
+
   _module_lib = dt.register_lib(
     "vlm_descriptions",
     _("VLM Descriptions"),
     true,
     false,
-    {[dt.gui.views.lighttable] = {"DT_UI_CONTAINER_PANEL_RIGHT_BOTTOM", 0}},
+    {[dt.gui.views.lighttable] = {panel_pos, 0}},
     module_box
   )
 
   _title_entry_ref = title_entry
-  _desc_entry_ref = desc_entry
+  _desc_text_ref = desc_text
 
   module_installed = true
 end
