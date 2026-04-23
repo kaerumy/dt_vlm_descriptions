@@ -42,8 +42,8 @@ Default is 4096 with range 50-8192. Value persists correctly via `dt.preferences
 - If available, include the capture date/time in the VLM prompt (e.g., "This photo was taken on March 15, 2024")
 - Helps the VLM provide more context-aware descriptions (season, time of day, etc.)
 
-## Filmroll metadata in VLM prompts
+## Filmroll metadata in VLM prompts ~~DONE~~
 
-- Check if the image's filmroll has associated text/metadata
-- If filmroll metadata exists, include it as additional context in the VLM prompt
-- Could provide contextual clues like trip names, event names, or folder descriptions
+- Film roll name is extracted from `image_obj.filmroll` in `build_vlm_request()`
+- If available, appended to the VLM prompt as "This image is from the film roll: <name>"
+- Provides contextual clues like trip names, event names, or folder descriptions

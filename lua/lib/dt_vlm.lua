@@ -371,12 +371,29 @@ local function build_vlm_request(image_path, options)
   local model = options.model or ""
   local max_tokens = options.max_tokens or 4096
   local temperature = options.temperature or 0.3
-  local prompt = options.prompt or [[Analyze this image and provide a concise title and description in JSON format.
-Rules:
-- Title: A short, descriptive title (max 80 characters)
-- Description: A detailed description of the image content (max 300 characters).
-- Return ONLY valid JSON with keys "title" and "description"
-- Do not include any markdown formatting, backticks, or explanation text]]
+  local filmroll = ""
+  if options.image_obj then
+    local path_parts = {}
+    for part in (options.image_obj.path .. "/"):gmatch("([^/]+)/") do
+      path_parts[#path_parts + 1] = part
+    end
+    if #path_parts >= 2 then
+      filmroll = path_parts[#path_parts]
+    end
+  end
+
+  local prompt = options.prompt or ("Analyze this image and provide a concise title and description in JSON format.\n"
+    .. "Rules:\n"
+    .. "- Title: A short, descriptive title (max 80 characters)\n"
+    .. "- Description: A detailed description of the image content (max 300 characters).\n"
+    .. "- Return ONLY valid JSON with keys \"title\" and \"description\"\n"
+    .. "- Do not include any markdown formatting, backticks, or explanation text")
+
+  if filmroll ~= "" then
+    prompt = prompt .. ("\n\nContext: This image is from the film roll \"%s\". "
+      .. "Incorporate this context into the description to provide scene awareness (e.g., event name, location, trip, or project).")
+      :format(filmroll)
+  end
 
   if options.title and options.title ~= "" then
     prompt = prompt .. "\n\nCurrent title: " .. options.title
