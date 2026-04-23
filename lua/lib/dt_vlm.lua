@@ -34,6 +34,7 @@
         dv.encode_image_resized(image_path, max_dim) - Resize and encode an image for VLM
         dv.escape_json_string(str)        - Escape a string for use in JSON
         dv.extract_json(str)              - Extract JSON object from freeform text
+        dv.resolve_image_path(path, obj)  - Resolve best image path (prefers JPEG in groups)
 ]]
 
 local dt = require "darktable"
@@ -478,6 +479,32 @@ local function call_vlm(image_path, options)
 end
 
 -- ---------------------------------------------------------------------------
+-- Grouped image path resolution
+-- ---------------------------------------------------------------------------
+
+local function resolve_image_path(image_path, image_obj)
+  if not image_obj or #image_obj:get_group_members() <= 1 then
+    return image_path
+  end
+
+  local members = image_obj:get_group_members()
+  local jpeg_path = nil
+
+  for _, member in ipairs(members) do
+    if not member.is_raw then
+      jpeg_path = member.path .. "/" .. member.filename
+      break
+    end
+  end
+
+  if jpeg_path then
+    return jpeg_path
+  end
+
+  return image_path
+end
+
+-- ---------------------------------------------------------------------------
 -- Public API
 -- ---------------------------------------------------------------------------
 
@@ -492,6 +519,7 @@ local dt_vlm = {
   parse_vlm_response = parse_vlm_response,
   build_vlm_request = build_vlm_request,
   call_vlm = call_vlm,
+  resolve_image_path = resolve_image_path,
 }
 
 return dt_vlm

@@ -26,12 +26,15 @@ Default is 4096 with range 50-8192. Value persists correctly via `dt.preferences
 - Non-RAW files continue using ImageMagick `convert` for backward compatibility
 - Updated call chain (`call_vlm` -> `build_vlm_request` -> `encode_image_resized` -> `resize_image`) to pass `image_obj` through
 
-## Grouped photos (RAW + JPEG) support
+## Grouped photos (RAW + JPEG) support ~~DONE~~
 
-- Darktable can group RAW and JPEG photos together (grouped photos feature)
-- Need to check if the plugin works correctly when grouped photos are enabled
-- May need to detect grouped images and prefer the RAW file for VLM analysis, or handle the group leader path
-- Test with grouped images to ensure correct image path resolution
+- Added `resolve_image_path(image_path, image_obj)` in `lib/dt_vlm.lua`
+- Detects grouped images via `#image_obj:get_group_members() > 1`
+- When grouped, iterates through members and prefers the non-RAW (JPEG) file for VLM analysis
+- Falls back to original path if no JPEG found in group or image is not grouped
+- Applied in both `action_suggest` and panel button callback
+- Added `save_to_group(img, title, description)` helper function
+- Save button (panel and action) now saves to all group members when image is in a group
 
 ## Datetime metadata in VLM prompts
 

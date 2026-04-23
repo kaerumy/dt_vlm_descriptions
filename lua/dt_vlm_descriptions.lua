@@ -204,6 +204,7 @@ local function action_suggest(event, images)
 
   local image = images[1]
   local image_path = image.path .. "/" .. image.filename
+  image_path = dv.resolve_image_path(image_path, image)
 
   dt.print_log(_("Suggesting title and description for: ") .. image.filename)
 
@@ -230,6 +231,20 @@ end
 -- Save metadata from dialog to image
 -- ---------------------------------------------------------------------------
 
+local function save_to_group(img, title, description)
+  if #img:get_group_members() > 1 then
+    for _, member in ipairs(img:get_group_members()) do
+      member.title = title
+      member.description = description
+    end
+    dt.print_log(_("Saved to group: ") .. img.filename)
+  else
+    img.title = title
+    img.description = description
+    dt.print_log(_("Saved title and description to: ") .. img.filename)
+  end
+end
+
 local function action_save_from_dialog(event, images)
   local title, description = get_panel_fields()
 
@@ -240,9 +255,7 @@ local function action_save_from_dialog(event, images)
 
   local img = images and images[1]
   if img then
-    img.title = title
-    img.description = description
-    dt.print_log(_("Saved title and description to: ") .. img.filename)
+    save_to_group(img, title, description)
   end
 
   dt.print(_("Title and description saved"))
@@ -300,6 +313,7 @@ local function install_module()
       end
       local image = dt.gui.action_images[1]
       local image_path = image.path .. "/" .. image.filename
+      image_path = dv.resolve_image_path(image_path, image)
       dt.print_log(_("Suggesting title and description for: ") .. image.filename)
       local current_title = image.title or ""
       local current_desc = image.description or ""
@@ -340,9 +354,7 @@ local function install_module()
       end
       local img = dt.gui.action_images and dt.gui.action_images[1]
       if img then
-        img.title = title
-        img.description = description
-        dt.print_log(_("Saved title and description to: ") .. img.filename)
+        save_to_group(img, title, description)
       end
       dt.print(_("Title and description saved"))
     end,
