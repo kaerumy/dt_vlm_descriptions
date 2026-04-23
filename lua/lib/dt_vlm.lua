@@ -35,6 +35,9 @@
         dv.escape_json_string(str)        - Escape a string for use in JSON
         dv.extract_json(str)              - Extract JSON object from freeform text
         dv.resolve_image_path(path, obj)  - Resolve best image path (prefers JPEG in groups)
+        dv.lookup_place_name(lat, lon)    - Reverse geocode coordinates via OSM Nominatim
+        dv.format_datetime(dt_str)        - Format EXIF datetime to "Month Day, Year"
+        dv.extract_filmroll_context(str)  - Extract places/jobs/subjects from film roll name
 ]]
 
 local dt = require "darktable"
@@ -361,6 +364,157 @@ local function parse_vlm_response(response)
 end
 
 -- ---------------------------------------------------------------------------
+-- Film roll context extraction
+-- ---------------------------------------------------------------------------
+
+local function extract_filmroll_context(filmroll)
+  if not filmroll or filmroll == "" then
+    return nil
+  end
+
+  local parts = {}
+  for part in filmroll:gmatch("[^%-/]+") do
+    local trimmed = part:match("^%s*(.-)%s*$")
+    if #trimmed > 0 then
+      parts[#parts + 1] = trimmed
+    end
+  end
+
+  local meaningful = {}
+  local date_pattern = "^%d%d%d%d[%-]?%d%d[%-]?%d%d$"
+
+  for _, part in ipairs(parts) do
+    if part:match(date_pattern) then
+      goto continue
+    end
+    if #part > 2 then
+      meaningful[#meaningful + 1] = part
+    end
+    ::continue::
+  end
+
+  if #meaningful > 0 then
+    return table.concat(meaningful, ", ")
+  end
+
+  return nil
+end
+
+-- ---------------------------------------------------------------------------
+-- Datetime formatting
+-- ---------------------------------------------------------------------------
+
+local MONTH_NAMES = {
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+}
+
+local function format_datetime(dt_str)
+  local year, month, day = dt_str:match("(%d+):(%d+):(%d+)")
+  if not year then
+    return nil
+  end
+  month = tonumber(month)
+  if month < 1 or month > 12 then
+    return nil
+  end
+  return string.format("%s %s, %s", MONTH_NAMES[month], day, year)
+end
+
+-- ---------------------------------------------------------------------------
+-- Geolocation reverse lookup via OSM Nominatim
+-- ---------------------------------------------------------------------------
+
+local function lookup_place_name(latitude, longitude)
+  dt.print_log("Nominatim lookup: lat=" .. tostring(latitude) .. " lon=" .. tostring(longitude))
+  local url = ("https://nominatim.openstreetmap.org/reverse?format=json&lat=%s&lon=%s&zoom=10&addressdetails=1"):format(
+    tostring(latitude), tostring(longitude)
+  )
+
+  local resp_tmpfile = os.tmpname()
+  local err_tmpfile = os.tmpname()
+
+  local curl_cmd = string.format(
+    'curl -s --max-time 15 -H "User-Agent: dt_vlm_descriptions" "%s" > %s 2> %s',
+    url,
+    resp_tmpfile,
+    err_tmpfile
+  )
+
+  local ret = os.execute(curl_cmd)
+
+  local response = ""
+  local resp_f = io.open(resp_tmpfile, "r")
+  if resp_f then
+    response = resp_f:read("*a")
+    resp_f:close()
+  end
+  os.remove(resp_tmpfile)
+  os.remove(err_tmpfile)
+
+  if not response or #response == 0 then
+    dt.print_log("Nominatim lookup: empty response")
+    return nil
+  end
+
+  dt.print_log("Nominatim response: " .. response:sub(1, 300))
+
+  local data = json_parse(response)
+  if not data or not data.address then
+    dt.print_log("Nominatim lookup: no address in response")
+    return nil
+  end
+
+  local addr = data.address
+  local country = addr.country or nil
+
+  local place_parts = {}
+
+  if addr.town or addr.city or addr.village or addr.municipality then
+    table.insert(place_parts, addr.town or addr.city or addr.village or addr.municipality)
+  end
+
+  if addr.county then
+    table.insert(place_parts, addr.county)
+  end
+
+  if addr.state then
+    table.insert(place_parts, addr.state)
+  end
+
+  if country then
+    table.insert(place_parts, country)
+  end
+
+  if #place_parts > 0 then
+    local place = table.concat(place_parts, ", ")
+    dt.print_log("Nominatim place: " .. place)
+    return place
+  end
+
+  if data.display_name then
+    local parts = {}
+    for part in data.display_name:gmatch("[^,]+") do
+      local trimmed = part:match("^%s*(.-)%s*$")
+      if #trimmed > 0 and #trimmed < 60 then
+        parts[#parts + 1] = trimmed
+      end
+      if #parts >= 3 then
+        break
+      end
+    end
+    if #parts > 0 then
+      local place = table.concat(parts, ", ")
+      dt.print_log("Nominatim place: " .. place .. " (display_name)")
+      return place
+    end
+  end
+
+  dt.print_log("Nominatim lookup: no place found")
+  return nil
+end
+
+-- ---------------------------------------------------------------------------
 -- VLM request building and sending
 -- ---------------------------------------------------------------------------
 
@@ -371,14 +525,24 @@ local function build_vlm_request(image_path, options)
   local model = options.model or ""
   local max_tokens = options.max_tokens or 4096
   local temperature = options.temperature or 0.3
-  local filmroll = ""
+  local place_name = nil
+  local capture_date = nil
+  local filmroll_context = nil
   if options.image_obj then
+    if options.image_obj.latitude and options.image_obj.longitude then
+      place_name = lookup_place_name(options.image_obj.latitude, options.image_obj.longitude)
+    end
+    local dt_str = options.image_obj.exif_datetime_taken
+    if dt_str and dt_str ~= "" then
+      capture_date = format_datetime(dt_str)
+    end
     local path_parts = {}
     for part in (options.image_obj.path .. "/"):gmatch("([^/]+)/") do
       path_parts[#path_parts + 1] = part
     end
     if #path_parts >= 2 then
-      filmroll = path_parts[#path_parts]
+      local filmroll = path_parts[#path_parts]
+      filmroll_context = extract_filmroll_context(filmroll)
     end
   end
 
@@ -389,10 +553,22 @@ local function build_vlm_request(image_path, options)
     .. "- Return ONLY valid JSON with keys \"title\" and \"description\"\n"
     .. "- Do not include any markdown formatting, backticks, or explanation text")
 
-  if filmroll ~= "" then
-    prompt = prompt .. ("\n\nContext: This image is from the film roll \"%s\". "
-      .. "Incorporate this context into the description to provide scene awareness (e.g., event name, location, trip, or project).")
-      :format(filmroll)
+  if filmroll_context then
+    prompt = prompt .. ("\n\nContext: This image relates to %s. "
+      .. "Incorporate this context into the description.")
+      :format(filmroll_context)
+  end
+
+  if capture_date then
+    prompt = prompt .. ("\n\nDate: This photo was taken on %s. "
+      .. "Incorporate this date into the description to provide temporal context (e.g., season, time of day).")
+      :format(capture_date)
+  end
+
+  if place_name then
+    prompt = prompt .. ("\n\nLocation: This photo was taken near \"%s\". "
+      .. "Incorporate this location into the description to provide geographic context.")
+      :format(place_name)
   end
 
   if options.title and options.title ~= "" then
@@ -537,6 +713,9 @@ local dt_vlm = {
   build_vlm_request = build_vlm_request,
   call_vlm = call_vlm,
   resolve_image_path = resolve_image_path,
+  lookup_place_name = lookup_place_name,
+  format_datetime = format_datetime,
+  extract_filmroll_context = extract_filmroll_context,
 }
 
 return dt_vlm

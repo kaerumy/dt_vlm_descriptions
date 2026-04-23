@@ -12,11 +12,13 @@ Added `panel_position` enum preference with 4 options: Right Center, Right Botto
 
 Default is 4096 with range 50-8192. Value persists correctly via `dt.preferences.register`/`dt.preferences.read` with no overwriting `preferences.write` calls.
 
-## Geolocation-aware VLM prompts
+## Geolocation-aware VLM prompts ~~DONE~~
 
 - Check image for latitude and longitude metadata from the image file
 - If both latitude and longitude are available, use them to lookup a place name from the OSM Nominatim API
 - Once geolocation and Nominatim lookup are working, include the location name in the VLM prompt
+
+Added `lookup_place_name(lat, lon)` function that queries OSM Nominatim reverse geocoding API via curl. Resolves coordinates to a place name with fallback hierarchy: town/city/village/municipality -> county -> state -> country -> display_name. Place name is appended to the VLM prompt as geographic context when both `image_obj.latitude` and `image_obj.longitude` are available.
 
 ## RAW file support ~~DONE~~
 
@@ -36,14 +38,18 @@ Default is 4096 with range 50-8192. Value persists correctly via `dt.preferences
 - Added `save_to_group(img, title, description)` helper function
 - Save button (panel and action) now saves to all group members when image is in a group
 
-## Datetime metadata in VLM prompts
+## Datetime metadata in VLM prompts ~~DONE~~
 
 - Check image for datetime metadata (EXIF DateTimeOriginal, DateTimeDigitized, etc.)
 - If available, include the capture date/time in the VLM prompt (e.g., "This photo was taken on March 15, 2024")
 - Helps the VLM provide more context-aware descriptions (season, time of day, etc.)
 
+Added `format_datetime(dt_str)` function that parses EXIF datetime format (`YYYY:MM:DD HH:MM:SS`) and returns `"Month Day, Year"`. Date is appended to the VLM prompt when `image_obj.exif_datetime_taken` is available. Film roll context removed from prompt.
+
 ## Filmroll metadata in VLM prompts ~~DONE~~
 
-- Film roll name is extracted from `image_obj.filmroll` in `build_vlm_request()`
-- If available, appended to the VLM prompt as "This image is from the film roll: <name>"
-- Provides contextual clues like trip names, event names, or folder descriptions
+- Film roll name is extracted from `image_obj.path` in `build_vlm_request()`
+- `extract_filmroll_context()` parses the film roll name, stripping date patterns and splitting by `-`/`/` delimiters
+- Extracted meaningful parts (places, jobs, subjects) are appended as context
+- Example: `"2025-10-11-KTM Batang Kali - Serendah Tunnel - KTM Batu Caves"` → `"KTM Batang Kali, Serendah Tunnel, KTM Batu Caves"`
+- Provides contextual clues like trip names, event names, or project names
