@@ -2,6 +2,24 @@
 
 A [darktable](https://darktable.org) Lua plugin that uses a local Vision-Language Model (VLM) to suggest **Title** and **Description** metadata for photos.
 
+This is a proof-of-concept plugin that demonstrates how to integrate a
+local VLM (e.g., Ollama, LM Studio, vLLM) with darktable's Lua API to
+generate AI-powered metadata suggestions based on image content and
+context film roll, geo-locatationd data and time of capture.
+
+The plugin sends selected images to the VLM via an
+OpenAI-compatible API endpoint, receives title and description
+suggestions in JSON format, and allows users to review, edit, and save
+the metadata back to the image's XMP sidecar or database.
+
+It also serves as a test case on capabilities of local AI models and
+[OpenCode](https://opencode.ai) to assist in writing plugins like this. 
+
+Current development testing is done with Qwen 3.6 32B A3B Q6 K_XL on llama.cpp,
+AMD Ryzen 9 5950X, 64GB RAM, Radeon RX 9700 XT 16GB VRAM and ROCm 7.2.2
+on Ubuntu Linux. 
+
+
 ## Features
 
 - **AI-powered suggestions** — Sends selected images to a local VLM via an OpenAI-compatible API endpoint and receives suggested title and description in JSON format
