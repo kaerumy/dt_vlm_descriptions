@@ -12,12 +12,18 @@ OpenAI-compatible API endpoint, receives title and description
 suggestions in JSON format, and allows users to review, edit, and save
 the metadata back to the image's XMP sidecar or database.
 
-It also serves as a test case on capabilities of local AI models and
-[OpenCode](https://opencode.ai) to assist in writing plugins like this. 
+It serves as a test case on capabilities of local AI models and
+[OpenCode](https://opencode.ai) to assist in writing plugins like this.
 
-Current development testing is done with Qwen 3.6 32B A3B Q6 K_XL on llama.cpp,
-AMD Ryzen 9 5950X, 64GB RAM, Radeon RX 9700 XT 16GB VRAM and ROCm 7.2.2
-on Ubuntu Linux. 
+All features are working, but not all code has been reviewed
+in detail. A better designed and reviewed plugin for production use will
+be be developed in the future based on learnings from this project, as
+the features here are something based on my current manual workflow that
+I want to improve.
+
+Current development testing for reference is with Qwen 3.6 32B A3B Q6
+K_XL on llama.cpp, AMD Ryzen 9 5950X, 64GB RAM, Radeon RX 9700 XT 16GB
+VRAM and ROCm 7.2.2 on Ubuntu Linux. 
 
 
 ## Features
