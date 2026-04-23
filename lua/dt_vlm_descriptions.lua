@@ -116,7 +116,7 @@ dt.preferences.register(
 -- VLM API call (delegates to lib/dt_vlm)
 -- ---------------------------------------------------------------------------
 
-local function call_vlm(image_path, title, description)
+local function call_vlm(image_path, title, description, image_obj)
   local endpoint = dt.preferences.read("dt_vlm_descriptions", "vlm_endpoint", "string")
   local model = dt.preferences.read("dt_vlm_descriptions", "vlm_model", "string")
   local max_tokens = dt.preferences.read("dt_vlm_descriptions", "vlm_max_tokens", "integer")
@@ -131,6 +131,7 @@ local function call_vlm(image_path, title, description)
     max_dim = max_dim,
     title = title,
     description = description,
+    image_obj = image_obj,
   })
 
   if err then
@@ -211,7 +212,7 @@ local function action_suggest(event, images)
 
   dt.print(_("Analyzing image with VLM..."))
 
-  local result = call_vlm(image_path, current_title, current_desc)
+  local result = call_vlm(image_path, current_title, current_desc, image)
 
   if result then
     dt.print_log(_("VLM suggestion received"))
@@ -303,7 +304,7 @@ local function install_module()
       local current_title = image.title or ""
       local current_desc = image.description or ""
       dt.print(_("Analyzing image with VLM..."))
-      local result = call_vlm(image_path, current_title, current_desc)
+      local result = call_vlm(image_path, current_title, current_desc, image)
       if result then
         dt.print_log(_("VLM suggestion received"))
         dt.print_log(_("Title: ") .. result.title)

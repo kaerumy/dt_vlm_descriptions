@@ -222,13 +222,44 @@ end
 -- Image resizing for VLM
 -- ---------------------------------------------------------------------------
 
-local function resize_image(image_path, max_dim)
+local RAW_EXTENSIONS = {
+  nef = true, cr2 = true, cr3 = true, arw = true, dng = true,
+  orf = true, raf = true, pef = true, sr2 = true, sraw = true,
+  ["3fr"] = true, fff = true, mos = true, mef = true,
+  k25 = true, kdc = true, mrw = true, nrw = true,
+  x3f = true, heic = true, heif = true,
+}
+
+local function is_raw_file(image_path, image_obj)
+  if image_obj and image_obj.is_raw then
+    return true
+  end
+  local ext = image_path:match("%.[^.]+$")
+  if ext then
+    return RAW_EXTENSIONS[string.lower(ext)] or false
+  end
+  return false
+end
+
+local function resize_image(image_path, max_dim, image_obj)
   max_dim = max_dim or 1024
+
+  if is_raw_file(image_path, image_obj) and image_obj then
+    local exporter = dt.new_format("jpeg")
+    exporter.quality = 85
+    exporter.max_height = 0
+    exporter.max_width = 0
+
+    local tmpfile = os.tmpname() .. ".jpg"
+    local success, err = exporter:write_image(image_obj, tmpfile, false)
+    if not success then
+      return nil, "RAW to JPEG export failed: " .. (err or "unknown error")
+    end
+    return tmpfile, nil
+  end
 
   local tmpfile = os.tmpname() .. ".jpg"
 
-  -- Use ImageMagick to resize longest side to max_dim, preserving aspect ratio
-  -- "resize 1024x1024>" means: shrink to fit within 1024x1024 box, keep aspect ratio
   local resize_cmd = string.format(
     'convert "%s" -resize "%dx%d>" -quality 85 "%s"',
     image_path,
@@ -247,8 +278,8 @@ local function resize_image(image_path, max_dim)
   return tmpfile, nil
 end
 
-local function encode_image_resized(image_path, max_dim)
-  local resized_path, err = resize_image(image_path, max_dim)
+local function encode_image_resized(image_path, max_dim, image_obj)
+  local resized_path, err = resize_image(image_path, max_dim, image_obj)
   if err then
     return nil, err
   end
@@ -355,7 +386,7 @@ Rules:
 
   -- Resize and encode image for VLM
   local max_dim = options.max_dim or 1024
-  local encoded, tmpfile = encode_image_resized(image_path, max_dim)
+  local encoded, tmpfile = encode_image_resized(image_path, max_dim, options.image_obj)
   if not encoded then
     return nil, tmpfile
   end
@@ -377,7 +408,7 @@ end
 local function call_vlm(image_path, options)
   options = options or {}
 
-  -- Build request (includes resized image temp file)
+  -- Build request (includes resized image temp file, uses image_obj for RAW support)
   local request_body, endpoint, tmpfile = build_vlm_request(image_path, options)
   if not request_body then
     return nil, endpoint

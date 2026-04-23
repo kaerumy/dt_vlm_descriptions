@@ -18,11 +18,13 @@ Default is 4096 with range 50-8192. Value persists correctly via `dt.preferences
 - If both latitude and longitude are available, use them to lookup a place name from the OSM Nominatim API
 - Once geolocation and Nominatim lookup are working, include the location name in the VLM prompt
 
-## RAW file support
+## RAW file support ~~DONE~~
 
-- Current `resize_image` uses ImageMagick `convert` which doesn't support RAW files
-- Need to detect RAW file extensions (NEF, CR2, ARW, DNG, etc.) and use an appropriate converter (e.g., `dcraw`, `libraw`, or darktable's own export API)
-- Alternatively, use darktable's `dt.image.export()` or `dt.image.processed()` to get a processed JPEG from the engine for RAW files
+- Added `RAW_EXTENSIONS` table with 20+ RAW formats (NEF, CR2, ARW, DNG, ORF, RAF, PEF, etc.)
+- Modified `resize_image()` to detect RAW files via `image_obj.is_raw` or file extension
+- For RAW files, uses `dt.new_format("jpeg")` with `write_image()` to export processed JPEG via darktable engine
+- Non-RAW files continue using ImageMagick `convert` for backward compatibility
+- Updated call chain (`call_vlm` -> `build_vlm_request` -> `encode_image_resized` -> `resize_image`) to pass `image_obj` through
 
 ## Grouped photos (RAW + JPEG) support
 
