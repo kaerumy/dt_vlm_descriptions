@@ -71,14 +71,12 @@ local function _create_dialog(options)
   -- Title input
   _title_entry = dt.new_widget("entry") {
     tooltip = _("Enter or edit the title"),
-    placeholder = _("enter title here"),
   }
   _title_entry.text = options.title or ""
 
-  local title_box = dt.new_widget("box") {
-    orientation = "horizontal",
-    fill = true,
-    dt.new_widget("label") { label = _("Title:") },
+  local title_field = dt.new_widget("box") {
+    orientation = "vertical",
+    dt.new_widget("label") { label = _("Title:"), halign = "start" },
     _title_entry,
   }
 
@@ -88,11 +86,10 @@ local function _create_dialog(options)
   }
   _desc_buffer.text = options.description or ""
 
-  local desc_box = dt.new_widget("box") {
-    orientation = "horizontal",
+  local desc_field = dt.new_widget("box") {
+    orientation = "vertical",
     expand = true,
-    fill = true,
-    dt.new_widget("label") { label = _("Description:") },
+    dt.new_widget("label") { label = _("Description:"), halign = "start" },
     _desc_buffer,
   }
 
@@ -157,8 +154,9 @@ local function _create_dialog(options)
   -- Content
   local content_box = dt.new_widget("box") {
     orientation = "vertical",
-    title_box,
-    desc_box,
+    title_field,
+    desc_field,
+    dt.new_widget("separator") {},
     button_box,
   }
 

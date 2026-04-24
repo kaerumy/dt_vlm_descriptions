@@ -27,7 +27,7 @@
     * A new panel "VLM Descriptions" will appear in lighttable
     * Select an image and click "Suggest" to get AI-generated title/description
     * Edit the suggestions, then click "Save" to store in metadata
-    * Click "Clear" to remove existing title/description
+    * Click "Clear" to clear the dialog fields
 ]]
 
 local dt = require "darktable"
@@ -262,36 +262,6 @@ local function action_save_from_dialog(event, images)
 end
 
 -- ---------------------------------------------------------------------------
--- Clear metadata
--- ---------------------------------------------------------------------------
-
-local function action_clear(event, images)
-  if not images or #images == 0 then
-    dt.print_error(_("No image selected"))
-    return
-  end
-
-  for _, image in ipairs(images) do
-    image.title = ""
-    image.description = ""
-    dt.print_log(_("Cleared title and description from: ") .. image.filename)
-  end
-
-  if _title_entry_ref then
-    _title_entry_ref.text = ""
-  end
-  if _desc_text_ref then
-    _desc_text_ref.text = ""
-  end
-
-  dt.print(_("Title and description cleared"))
-
-  if dvd.is_visible() then
-    dvd.hide()
-  end
-end
-
--- ---------------------------------------------------------------------------
 -- Module / Panel
 -- ---------------------------------------------------------------------------
 
@@ -362,39 +332,25 @@ local function install_module()
 
   local clear_button = dt.new_widget("button") {
     label = _("Clear"),
-    tooltip = _("Clear title and description from image metadata"),
+    tooltip = _("Clear title and description fields in this panel"),
     clicked_callback = function()
-      if not dt.gui.action_images or #dt.gui.action_images == 0 then
-        dt.print_error(_("No image selected"))
-        return
-      end
-      for __, img in ipairs(dt.gui.action_images) do
-        img.title = ""
-        img.description = ""
-        dt.print_log(_("Cleared title and description from: ") .. img.filename)
-      end
       if _title_entry_ref then
         _title_entry_ref.text = ""
       end
       if _desc_text_ref then
         _desc_text_ref.text = ""
       end
-      dt.print(_("Title and description cleared"))
-      if dvd.is_visible() then
-        dvd.hide()
-      end
+      dt.print(_("Title and description fields cleared"))
     end,
   }
 
   local title_entry = dt.new_widget("entry") {
     tooltip = _("Title for the image"),
-    placeholder = _("enter title here"),
   }
 
-  local title_box = dt.new_widget("box") {
-    orientation = "horizontal",
-    fill = true,
-    dt.new_widget("label") { label = _("Title:") },
+  local title_field = dt.new_widget("box") {
+    orientation = "vertical",
+    dt.new_widget("label") { label = _("Title:"), halign = "start" },
     title_entry,
   }
 
@@ -404,11 +360,10 @@ local function install_module()
   }
   desc_text.text = ""
 
-  local desc_box = dt.new_widget("box") {
-    orientation = "horizontal",
+  local desc_field = dt.new_widget("box") {
+    orientation = "vertical",
     expand = true,
-    fill = true,
-    dt.new_widget("label") { label = _("Description:") },
+    dt.new_widget("label") { label = _("Description:"), halign = "start" },
     desc_text,
   }
 
@@ -431,8 +386,9 @@ local function install_module()
     orientation = "vertical",
     info_label,
     dt.new_widget("separator") {},
-    title_box,
-    desc_box,
+    title_field,
+    desc_field,
+    dt.new_widget("separator") {},
     dt.new_widget("separator") {},
     button_box,
     dt.new_widget("separator") {},
