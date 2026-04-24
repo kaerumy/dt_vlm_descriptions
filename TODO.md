@@ -53,3 +53,77 @@ Added `format_datetime(dt_str)` function that parses EXIF datetime format (`YYYY
 - Extracted meaningful parts (places, jobs, subjects) are appended as context
 - Example: `"2025-10-11-KTM Batang Kali - Serendah Tunnel - KTM Batu Caves"` → `"KTM Batang Kali, Serendah Tunnel, KTM Batu Caves"`
 - Provides contextual clues like trip names, event names, or project names
+
+## AP Photo style caption + keyword search description ~~TODO~~
+
+- Current prompt generates a generic title and description. Improve the prompt to produce:
+  - **Title**: AP News photo caption style — concise, factual, third-person, includes key subjects and action (e.g., "A worker inspects solar panels at a farm in rural Arizona")
+  - **Caption**: 2-sentence AP-style editorial caption with photo credit:
+    1. Sentence 1 (present tense): Subject and details of subject, where and when
+    2. Sentence 2 (past tense): Background context of the photo or its significance
+    3. Photo credit: Photographer name from EXIF Creator/Artist field (e.g., "Photo by Jane Doe")
+  - **Details**: A longer, thorough description of all visual elements, objects, people, setting, colors, lighting, and actions for keyword search and archival purposes
+- Update JSON response format to include `"title"`, `"caption"`, and `"details"` keys
+- Update dialog UI to display caption and details fields alongside title
+- Save `caption` to metadata Description, store `details` separately (e.g., in Keywords or a custom metadata field) for searchability
+
+## Batch Suggest — process multiple images/groups at once ~~TODO~~
+
+- Add a "Batch Suggest" button to the VLM panel alongside Suggest/Save/Clear
+- User selects multiple images or groups in lighttable, clicks "Batch Suggest"
+- A progress dialog shows current image being processed
+- After all VLM calls complete, a results dialog appears with:
+  - Scrollable list of all images with their suggested title/description
+  - Warning: "This will overwrite existing title and description metadata"
+  - **Apply** and **Cancel** buttons
+- On Apply, metadata is saved to all images (including group members)
+
+### Deduplication Logic
+- If a selected image belongs to a group, all group members are treated as one unit
+- The first selected image from each group is kept; others are skipped
+- Each unique image/group gets one VLM call
+
+### Processing Model
+- Sequential (not parallel) — VLM calls are synchronous via `os.execute` + curl
+- Progress dialog updates after each image completes
+- If a VLM call fails for one image, that image shows an error placeholder and processing continues
+
+### Implementation Order
+1. Add `get_unique_images(images)` helper — deduplicates by group membership
+2. Add batch button to panel
+3. Add `action_batch_suggest` — orchestrates dedup, progress, VLM calls
+4. Add `show_batch_progress` dialog
+5. Add `show_batch_results` dialog with scrollable area
+6. Wire up Apply/Cancel callbacks
+7. Add to button_box
+
+### Dialog Layout (Results)
+
+```
+┌─ Edit Batch Titles & Descriptions ────────────────────┐
+│                                                        │
+│ ⚠ This will overwrite existing title & description    │
+│   metadata for all listed images.                      │
+│                                                        │
+│ ┌─ Scrollable Area ───────────────────────────────┐   │
+│ │                                                  │   │
+│ │ Image 1: photo_001.jpg                          │   │
+│ │ Title:   [suggested title]                      │   │
+│ │ Desc:    [suggested description]                │   │
+│ │                                                  │   │
+│ │ Image 2: photo_002.jpg                          │   │
+│ │ Title:   [suggested title]                      │   │
+│ │ Desc:    [suggested description]                │   │
+│ │                                                  │   │
+│ │ ...                                              │   │
+│ │                                                  │   │
+│ └──────────────────────────────────────────────────┘   │
+│                                                        │
+│                  [Cancel]  [Apply]                     │
+└────────────────────────────────────────────────────────┘
+```
+
+### Error Handling
+- If VLM call fails for one image: show "Error — VLM call failed" in that row, continue processing
+- If no images selected: show error toast via `dt.print_error`
+- If endpoint is unreachable: show error in progress dialog
