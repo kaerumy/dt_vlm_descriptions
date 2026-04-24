@@ -274,6 +274,8 @@ local _batch_prev_button = nil
 local _batch_next_button = nil
 local _batch_image_label = nil
 local _batch_warning_label = nil
+local _batch_status_label = nil
+local _batch_area = nil
 
 local function get_unique_images(images)
   if not images or #images == 0 then
@@ -302,10 +304,15 @@ end
 
 local function show_batch_progress(toast_msg)
   dt.print_toast(toast_msg)
+  if _batch_status_label then
+    _batch_status_label.label = toast_msg
+  end
 end
 
 local function hide_batch_progress()
-  -- Toast auto-dismisses
+  if _batch_status_label then
+    _batch_status_label.label = ""
+  end
 end
 
 local function update_batch_display()
@@ -318,7 +325,7 @@ local function update_batch_display()
     return
   end
 
-  _batch_image_label.label = result.filename or ("Image " .. _batch_index)
+  _batch_image_label.label = _("Image ") .. _batch_index .. " / " .. #_batch_results .. ": " .. (result.filename or ("Image " .. _batch_index))
 
   if _title_entry_ref then
     _title_entry_ref.text = result.title or ""
@@ -345,6 +352,10 @@ local function enter_batch_mode(results)
   _batch_index = 1
   _batch_mode = true
 
+  if _batch_area then
+    _batch_area.visible = true
+  end
+
   if _batch_warning_label then
     _batch_warning_label.visible = true
   end
@@ -366,6 +377,10 @@ local function enter_batch_mode(results)
     _batch_image_label.visible = true
   end
 
+  if _batch_status_label then
+    _batch_status_label.visible = true
+  end
+
   update_batch_display()
 
   dt.print_toast(_("Batch complete: ") .. #results .. _(" images processed"))
@@ -375,6 +390,10 @@ local function exit_batch_mode()
   _batch_results = nil
   _batch_index = 0
   _batch_mode = false
+
+  if _batch_area then
+    _batch_area.visible = false
+  end
 
   if _batch_warning_label then
     _batch_warning_label.visible = false
@@ -395,6 +414,11 @@ local function exit_batch_mode()
 
   if _batch_image_label then
     _batch_image_label.visible = false
+  end
+
+  if _batch_status_label then
+    _batch_status_label.visible = false
+    _batch_status_label.label = ""
   end
 
   if _title_entry_ref then
@@ -669,6 +693,10 @@ local function install_module()
     cancel_batch_results()
   end
 
+  _batch_status_label = dt.new_widget("label") {
+    label = _(""),
+  }
+
   local batch_nav_box = dt.new_widget("box") {
     orientation = "horizontal",
     _batch_prev_button,
@@ -677,10 +705,13 @@ local function install_module()
     _batch_cancel_button,
   }
 
-  local batch_area = dt.new_widget("box") {
+  _batch_area = dt.new_widget("box") {
     orientation = "vertical",
     visible = false,
+    dt.new_widget("section_label") { label = _("Batch Processing") },
     _batch_image_label,
+    dt.new_widget("separator") {},
+    _batch_status_label,
     dt.new_widget("separator") {},
     _batch_warning_label,
     dt.new_widget("separator") {},
@@ -702,7 +733,7 @@ local function install_module()
     title_field,
     desc_field,
     dt.new_widget("separator") {},
-    batch_area,
+    _batch_area,
     dt.new_widget("separator") {},
     button_box,
     dt.new_widget("separator") {},
