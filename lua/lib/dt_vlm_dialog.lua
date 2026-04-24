@@ -64,7 +64,7 @@ local function _create_dialog(options)
 
   -- Destroy existing dialog if any
   if _dialog then
-    dt.gui.widgets.dialog:destroy()
+    _dialog:destroy()
     _dialog = nil
   end
 
@@ -160,13 +160,10 @@ local function _create_dialog(options)
     button_box,
   }
 
-  -- Dialog
-  _dialog = dt.new_widget("dialog") {
-    title = _("Edit Title & Description"),
-    content_box,
-  }
-
-  _dialog:show()
+  -- Note: dt.new_widget("dialog") is not available in darktable Lua API.
+  -- This module is kept for future use when a dialog widget becomes available.
+  -- For now, the panel handles all editing inline.
+  _dialog = nil
 end
 
 -- ---------------------------------------------------------------------------

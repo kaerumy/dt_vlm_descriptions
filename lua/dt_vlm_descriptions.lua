@@ -266,9 +266,14 @@ end
 -- ---------------------------------------------------------------------------
 
 local _batch_results = nil
-local _batch_progress_dialog = nil
-local _batch_progress_label = nil
-local _batch_progress_bar = nil
+local _batch_index = 0
+local _batch_mode = false
+local _batch_apply_button = nil
+local _batch_cancel_button = nil
+local _batch_prev_button = nil
+local _batch_next_button = nil
+local _batch_image_label = nil
+local _batch_warning_label = nil
 
 local function get_unique_images(images)
   if not images or #images == 0 then
@@ -295,175 +300,143 @@ local function get_unique_images(images)
   return unique
 end
 
-local function show_batch_progress(total)
-  if _batch_progress_dialog then
-    _batch_progress_dialog:destroy()
-  end
-
-  _batch_progress_label = dt.new_widget("label") {
-    label = _("Processing image 1 of ") .. total .. "...",
-  }
-
-  _batch_progress_bar = dt.new_widget("box") {
-    orientation = "horizontal",
-    expand = true,
-    dt.new_widget("label") { label = "" },
-    dt.new_widget("separator") {},
-    dt.new_widget("label") { label = "" },
-  }
-
-  local progress_box = dt.new_widget("box") {
-    orientation = "vertical",
-    _batch_progress_label,
-    dt.new_widget("separator") {},
-    _batch_progress_bar,
-  }
-
-  _batch_progress_dialog = dt.new_widget("dialog") {
-    title = _("Batch Processing"),
-    progress_box,
-  }
-
-  _batch_progress_dialog:show()
-end
-
-local function update_batch_progress(current, total, image_name)
-  if _batch_progress_label then
-    _batch_progress_label.label = _("Processing image ") .. current .. " of " .. total .. ": " .. image_name
-  end
+local function show_batch_progress(toast_msg)
+  dt.print_toast(toast_msg)
 end
 
 local function hide_batch_progress()
-  if _batch_progress_dialog then
-    _batch_progress_dialog:destroy()
-    _batch_progress_dialog = nil
-  end
-  _batch_progress_label = nil
-  _batch_progress_bar = nil
+  -- Toast auto-dismisses
 end
 
-local function show_batch_results(results)
+local function update_batch_display()
+  if not _batch_results or not _batch_image_label then
+    return
+  end
+
+  local result = _batch_results[_batch_index]
+  if not result then
+    return
+  end
+
+  _batch_image_label.label = result.filename or ("Image " .. _batch_index)
+
+  if _title_entry_ref then
+    _title_entry_ref.text = result.title or ""
+  end
+  if _desc_text_ref then
+    _desc_text_ref.text = result.description or ""
+  end
+
+  if _batch_prev_button then
+    _batch_prev_button.sensitive = _batch_index > 1
+  end
+  if _batch_next_button then
+    _batch_next_button.sensitive = _batch_index < #_batch_results
+  end
+end
+
+local function enter_batch_mode(results)
   if not results or #results == 0 then
     dt.print_error(_("No results to display"))
     return
   end
 
-  local scroll_area = dt.new_widget("box") {
-    orientation = "vertical",
-  }
+  _batch_results = results
+  _batch_index = 1
+  _batch_mode = true
 
-  for i, result in ipairs(results) do
-    local img_label = dt.new_widget("label") {
-      label = result.filename or ("Image " .. i),
-    }
-
-    local title_label = dt.new_widget("label") {
-      label = _("Title: "),
-    }
-
-    local title_text = dt.new_widget("label") {
-      label = result.title or _("(error)"),
-      selectable = true,
-    }
-
-    local title_row = dt.new_widget("box") {
-      orientation = "horizontal",
-      title_label,
-      title_text,
-    }
-
-    local desc_label = dt.new_widget("label") {
-      label = _("Description: "),
-    }
-
-    local desc_text = dt.new_widget("text_view") {
-      text = result.description or "",
-      editable = true,
-    }
-
-    local desc_row = dt.new_widget("box") {
-      orientation = "horizontal",
-      expand = true,
-      fill = true,
-      desc_label,
-      desc_text,
-    }
-
-    local item_box = dt.new_widget("box") {
-      orientation = "vertical",
-      img_label,
-      dt.new_widget("separator") {},
-      title_row,
-      desc_row,
-      dt.new_widget("separator") {},
-    }
-
-    scroll_area[#scroll_area + 1] = item_box
+  if _batch_warning_label then
+    _batch_warning_label.visible = true
   end
 
-  local warning_label = dt.new_widget("label") {
-    label = _("Warning: This will overwrite existing title and description metadata for all listed images."),
-  }
-
-  local apply_button = dt.new_widget("button") {
-    label = _("Apply"),
-    tooltip = _("Save all suggestions to image metadata"),
-  }
-
-  local cancel_button = dt.new_widget("button") {
-    label = _("Cancel"),
-    tooltip = _("Close without saving"),
-  }
-
-  local button_row = dt.new_widget("box") {
-    orientation = "horizontal",
-    dt.new_widget("center") {},
-    cancel_button,
-    apply_button,
-  }
-
-  local content_box = dt.new_widget("box") {
-    orientation = "vertical",
-    warning_label,
-    dt.new_widget("separator") {},
-    scroll_area,
-    dt.new_widget("separator") {},
-    button_row,
-  }
-
-  local dialog = dt.new_widget("dialog") {
-    title = _("Batch Results"),
-    content_box,
-  }
-
-  dialog:show()
-
-  cancel_button.clicked_callback = function()
-    dialog:destroy()
+  if _batch_prev_button then
+    _batch_prev_button.visible = true
+  end
+  if _batch_next_button then
+    _batch_next_button.visible = true
+  end
+  if _batch_apply_button then
+    _batch_apply_button.visible = true
+  end
+  if _batch_cancel_button then
+    _batch_cancel_button.visible = true
   end
 
-  apply_button.clicked_callback = function()
-    local saved = 0
-    local failed = 0
+  if _batch_image_label then
+    _batch_image_label.visible = true
+  end
 
-    for _, result in ipairs(results) do
-      if result.title or result.description then
-        local img = result.image
-        if img then
-          save_to_group(img, result.title or "", result.description or "")
-          saved = saved + 1
-        end
-      else
-        failed = failed + 1
+  update_batch_display()
+
+  dt.print_toast(_("Batch complete: ") .. #results .. _(" images processed"))
+end
+
+local function exit_batch_mode()
+  _batch_results = nil
+  _batch_index = 0
+  _batch_mode = false
+
+  if _batch_warning_label then
+    _batch_warning_label.visible = false
+  end
+
+  if _batch_prev_button then
+    _batch_prev_button.visible = false
+  end
+  if _batch_next_button then
+    _batch_next_button.visible = false
+  end
+  if _batch_apply_button then
+    _batch_apply_button.visible = false
+  end
+  if _batch_cancel_button then
+    _batch_cancel_button.visible = false
+  end
+
+  if _batch_image_label then
+    _batch_image_label.visible = false
+  end
+
+  if _title_entry_ref then
+    _title_entry_ref.text = ""
+  end
+  if _desc_text_ref then
+    _desc_text_ref.text = ""
+  end
+end
+
+local function apply_batch_results()
+  if not _batch_results then
+    return
+  end
+
+  local saved = 0
+  local failed = 0
+
+  for _, result in ipairs(_batch_results) do
+    if result.title or result.description then
+      local img = result.image
+      if img then
+        save_to_group(img, result.title or "", result.description or "")
+        saved = saved + 1
       end
+    else
+      failed = failed + 1
     end
-
-    dialog:destroy()
-    if failed > 0 then
-      dt.print_log(_("Batch save complete: ") .. saved .. _(" saved, ") .. failed .. _(" failed"))
-    end
-    dt.print(_("Batch save complete: ") .. saved .. _(" saved"))
   end
+
+  exit_batch_mode()
+
+  if failed > 0 then
+    dt.print_log(_("Batch save complete: ") .. saved .. _(" saved, ") .. failed .. _(" failed"))
+  end
+  dt.print_log(_("Batch save complete: ") .. saved .. _(" saved"))
+  dt.print_toast(_("Saved ") .. saved .. _(" images"))
+end
+
+local function cancel_batch_results()
+  exit_batch_mode()
+  dt.print_log(_("Batch processing cancelled"))
 end
 
 -- ---------------------------------------------------------------------------
@@ -566,7 +539,6 @@ local function install_module()
 
       local total = #unique_images
       dt.print(_("Processing ") .. total .. _(" images with VLM..."))
-      show_batch_progress(total)
 
       local results = {}
       for i, img in ipairs(unique_images) do
@@ -575,7 +547,7 @@ local function install_module()
         local current_title = img.title or ""
         local current_desc = img.description or ""
 
-        update_batch_progress(i, total, img.filename)
+        show_batch_progress(_("Processing ") .. i .. " of " .. total .. ": " .. img.filename)
 
         dt.print_log(_("Processing image ") .. i .. " of " .. total .. ": " .. img.filename)
         local result = call_vlm(image_path, current_title, current_desc, img)
@@ -611,7 +583,7 @@ local function install_module()
       dt.print_log(_("Batch complete: ") .. success_count .. _(" succeeded, ") .. (total - success_count) .. _(" failed"))
       dt.print(_("Batch processing complete: ") .. success_count .. _(" succeeded"))
 
-      show_batch_results(results)
+      enter_batch_mode(results)
     end,
   }
 
@@ -646,6 +618,75 @@ local function install_module()
     label = _(""),
   }
 
+  _batch_image_label = dt.new_widget("label") {
+    label = _(""),
+    selectable = true,
+  }
+
+  _batch_warning_label = dt.new_widget("label") {
+    label = _("Warning: This will overwrite existing title and description metadata for all listed images."),
+  }
+
+  _batch_prev_button = dt.new_widget("button") {
+    label = _("Prev"),
+    tooltip = _("Previous image in batch"),
+  }
+
+  _batch_next_button = dt.new_widget("button") {
+    label = _("Next"),
+    tooltip = _("Next image in batch"),
+  }
+
+  _batch_apply_button = dt.new_widget("button") {
+    label = _("Apply"),
+    tooltip = _("Save all suggestions to image metadata"),
+  }
+
+  _batch_cancel_button = dt.new_widget("button") {
+    label = _("Cancel"),
+    tooltip = _("Close without saving"),
+  }
+
+  _batch_prev_button.clicked_callback = function()
+    if _batch_index > 1 then
+      _batch_index = _batch_index - 1
+      update_batch_display()
+    end
+  end
+
+  _batch_next_button.clicked_callback = function()
+    if _batch_index < #(_batch_results or {}) then
+      _batch_index = _batch_index + 1
+      update_batch_display()
+    end
+  end
+
+  _batch_apply_button.clicked_callback = function()
+    apply_batch_results()
+  end
+
+  _batch_cancel_button.clicked_callback = function()
+    cancel_batch_results()
+  end
+
+  local batch_nav_box = dt.new_widget("box") {
+    orientation = "horizontal",
+    _batch_prev_button,
+    _batch_next_button,
+    _batch_apply_button,
+    _batch_cancel_button,
+  }
+
+  local batch_area = dt.new_widget("box") {
+    orientation = "vertical",
+    visible = false,
+    _batch_image_label,
+    dt.new_widget("separator") {},
+    _batch_warning_label,
+    dt.new_widget("separator") {},
+    batch_nav_box,
+  }
+
   local button_box = dt.new_widget("box") {
     orientation = "horizontal",
     suggest_button,
@@ -661,6 +702,7 @@ local function install_module()
     title_field,
     desc_field,
     dt.new_widget("separator") {},
+    batch_area,
     dt.new_widget("separator") {},
     button_box,
     dt.new_widget("separator") {},
